@@ -1,24 +1,16 @@
-import os
-import pickle
-from dotenv import load_dotenv
 from utils.extractor import extract_text
 from utils.vectorizer import build_vector_store
+import os
 
-load_dotenv()
-
-DATA_DIR = "data"
-SAMPLE_DOCS = [os.path.join(DATA_DIR, f) for f in os.listdir(DATA_DIR) if f.endswith(".pdf")]
+DATA_FOLDER = "data"
 
 def preprocess_all():
-    indices = {}
-    for doc in SAMPLE_DOCS:
-        print(f"Processing {doc}...")
-        text = extract_text(doc)
-        vector_store = build_vector_store(text)
-        indices[os.path.basename(doc)] = vector_store
-    with open("faiss_indices.pkl", "wb") as f:
-        pickle.dump(indices, f)
-    print("Preprocessing complete. Indices saved.")
+    for file_name in os.listdir(DATA_FOLDER):
+        if file_name.endswith(".pdf"):
+            file_path = os.path.join(DATA_FOLDER, file_name)
+            print(f"Processing {file_path}...")
+            text = extract_text(file_path)
+            build_vector_store(text)
 
 if __name__ == "__main__":
     preprocess_all()
