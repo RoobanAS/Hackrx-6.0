@@ -1,52 +1,68 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Request
 from pydantic import BaseModel
-import os, pickle
-from dotenv import load_dotenv
-from utils.downloader import download_document
 from utils.extractor import extract_text
 from utils.vectorizer import build_vector_store
-from utils.qa_engine import ask_gemini
-
-# Load environment
-load_dotenv()
-HACKRX_TOKEN = os.getenv("HACKRX_TOKEN")
-
-# Load prebuilt indices (if any)
-try:
-    with open("faiss_indices.pkl", "rb") as f:
-        PRELOADED_INDICES = pickle.load(f)
-except:
-    PRELOADED_INDICES = {}
+import os
+import requests
 
 # FastAPI app
 app = FastAPI()
 
+# Load HackRx token from env
+HACKRX_TOKEN = os.getenv("HACKRX_TOKEN")
+
+# Request model
 class HackRxRequest(BaseModel):
     documents: str
     questions: list[str]
 
+
+# Health check endpoint
+@app.get("/")
+def health_check():
+    return {"status": "running", "message": "HackRx LLM API working"}
+
+
+# Support both /hackrx/run and /api/v1/hackrx/run
 @app.post("/hackrx/run")
-async def hackrx_run(request: Request, data: HackRxRequest):
-    # Auth check
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer ") or auth_header.split(" ")[1] != HACKRX_TOKEN:
+@app.post("/api/v1/hackrx/run")
+async def hackrx_run(data: HackRxRequest, authorization: str = Header(None)):
+    # Token validation
+    if authorization != f"Bearer {HACKRX_TOKEN}":
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Get vector store (prebuilt or build on-demand)
-    doc_name = os.path.basename(data.documents)
-    if doc_name in PRELOADED_INDICES:
-        vector_store = PRELOADED_INDICES[doc_name]
-    else:
-        file_path = download_document(data.documents)
+    try:
+        # 1. Download document
+        response = requests.get(data.documents)
+        if response.status_code != 200:
+            raise HTTPException(status_code=400, detail="Failed to download document")
+
+        file_path = "temp.pdf"
+        with open(file_path, "wb") as f:
+            f.write(response.content)
+
+        # 2. Extract text
         text = extract_text(file_path)
+
+        # 3. Build vector store (Gemini embeddings with fallback)
         vector_store = build_vector_store(text)
 
-    # Answer questions
-    answers = []
-    for q in data.questions:
-        retrieved_docs = vector_store.similarity_search(q, k=3)
-        context = "\n".join([doc.page_content for doc in retrieved_docs])
-        answer = ask_gemini(context, q)
-        answers.append(answer)
+        # 4. Answer questions
+        answers = []
+        for q in data.questions:
+            retrieved_docs = vector_store.similarity_search(q, k=3)
+            context = "\n".join([doc.page_content for doc in retrieved_docs])
 
-    return {"answers": answers}
+            # Call Gemini for answering (simple direct answer)
+            import google.generativeai as genai
+            genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+            model = genai.GenerativeModel("gemini-pro")
+
+            prompt = f"Answer the question based only on the context:\n{context}\n\nQuestion: {q}\nAnswer clearly and concisely."
+            resp = model.generate_content(prompt)
+            answers.append(resp.text.strip())
+
+        return {"answers": answers}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Error: {str(e)}")

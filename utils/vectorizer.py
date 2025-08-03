@@ -1,40 +1,37 @@
-from langchain_community.vectorstores import FAISS
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-import google.generativeai as genai
-from dotenv import load_dotenv
 import os
+import google.generativeai as genai
+from langchain_community.vectorstores import FAISS
+from langchain_core.embeddings import Embeddings
+from langchain_openai import OpenAIEmbeddings
 
-# Load environment and configure Gemini
-load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    raise ValueError("GOOGLE_API_KEY not found in environment.")
-genai.configure(api_key=api_key)
 
-def get_gemini_embeddings(texts):
-    """
-    Generate embeddings for a list of texts using Gemini embedding model.
-    """
-    model = "models/embedding-001"
-    embeddings = []
-    for text in texts:
-        result = genai.embed_content(model=model, content=text)
-        embeddings.append(result['embedding'])
-    return embeddings
+class GeminiEmbeddings(Embeddings):
+    def __init__(self, model="models/embedding-001"):
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        self.model = model
 
-class GeminiEmbeddings:
-    """Wrapper class for FAISS compatibility"""
     def embed_documents(self, texts):
-        return get_gemini_embeddings(texts)
+        return [self._embed(text) for text in texts]
 
     def embed_query(self, text):
-        return get_gemini_embeddings([text])[0]
+        return self._embed(text)
+
+    def _embed(self, text):
+        if not text:
+            return [0.0] * 768
+        result = genai.embed_content(model=self.model, content=text)
+        return result["embedding"]
+
 
 def build_vector_store(text):
-    """
-    Split text into chunks and store in FAISS using Gemini embeddings.
-    """
-    splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=100)
-    chunks = splitter.split_text(text)
-    vector_store = FAISS.from_texts(chunks, GeminiEmbeddings())
+    chunks = [text[i:i + 2000] for i in range(0, len(text), 2000)]
+    try:
+        embeddings = GeminiEmbeddings()
+        vector_store = FAISS.from_texts(chunks, embeddings)
+        print("Using Gemini embeddings")
+    except Exception as e:
+        print("Gemini failed, fallback to OpenAI:", e)
+        embeddings = OpenAIEmbeddings(model="text-embedding-3-small", openai_api_key=os.getenv("OPENAI_API_KEY"))
+        vector_store = FAISS.from_texts(chunks, embeddings)
+
     return vector_store
