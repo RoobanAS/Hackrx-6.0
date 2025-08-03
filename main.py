@@ -59,7 +59,7 @@ async def hackrx_run(data: HackRxRequest, authorization: str = Header(None)):
             context = "\n\n".join([f"Clause: {doc.page_content}" for doc in retrieved_docs])
 
             # Use Gemini 1.5 Pro for answering
-            model = genai.GenerativeModel("models/gemini-1.5-pro")
+            model = genai.GenerativeModel("models/gemini-1.5-flash")
 
             # Prompt with clause referencing
             prompt = (
