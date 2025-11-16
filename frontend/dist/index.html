@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Q&A System</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📄 Document Q&A System</h1>
+            <p>Upload a PDF document and ask questions about its content</p>
+        </header>
+
+        <main>
+            <div class="form-container">
+                <form id="qaForm">
+                    <div class="form-group">
+                        <label for="documentFile">Upload PDF Document:</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="upload-content">
+                                <div class="upload-icon">📁</div>
+                                <h3>Drag & Drop your PDF file here</h3>
+                                <p>or</p>
+                                <button type="button" class="browse-btn" id="browseBtn">Browse Files</button>
+                                <input type="file" id="documentFile" name="documentFile" accept=".pdf" hidden>
+                                <div class="file-info" id="fileInfo" style="display: none;">
+                                    <span class="file-name" id="fileName"></span>
+                                    <button type="button" class="remove-file" id="removeFile">×</button>
+                                </div>
+                            </div>
+                        </div>
+                        <small>Supported format: PDF (Max: 10MB)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="questions">Questions (one per line):</label>
+                        <textarea 
+                            id="questions" 
+                            name="questions" 
+                            rows="5" 
+                            placeholder="What is the main purpose of this document?&#10;What are the key terms and conditions?&#10;How does the process work?&#10;What are the important clauses?"
+                            required
+                        ></textarea>
+                        <small>Enter each question on a new line</small>
+                    </div>
+
+                    <button type="submit" id="submitBtn">
+                        <span class="btn-text">Process Document & Get Answers</span>
+                        <span class="btn-loading" style="display: none;">
+                            <div class="spinner"></div> Processing...
+                        </span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="results" class="results-container" style="display: none;">
+                <h2>📋 Answers</h2>
+                <div id="answersList"></div>
+            </div>
+
+            <div id="error" class="error-container" style="display: none;">
+                <h2>❌ Error</h2>
+                <div id="errorMessage"></div>
+            </div>
+
+            <div class="info-container">
+                <h3>💡 How to use:</h3>
+                <ol>
+                    <li>Upload a PDF document by dragging or browsing</li>
+                    <li>Write your questions (one per line)</li>
+                    <li>Click "Process Document & Get Answers"</li>
+                    <li>Wait for the AI to analyze your document and provide answers</li>
+                </ol>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
